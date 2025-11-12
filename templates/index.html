@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facial Attendance System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ url_for('index') }}" class="logo">FACIAL ATTENDANCE</a>
+            <div class="nav-links">
+                <a href="{{ url_for('index') }}" class="active">Home</a>
+                <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
+                <a href="{{ url_for('create_user') }}">Create New User</a>
+            </div>
+        </div>
+    </nav>
+    <main class="content">
+        <h1>Welcome to the Facial Attendance System</h1>
+        <p>This system allows you to track employee attendance using facial recognition technology.</p>
+        <div class="action-buttons">
+            <a href="{{ url_for('mark_attendance_page') }}" class="btn">Mark Attendance</a>
+            <a href="{{ url_for('create_user') }}" class="btn">Create New User</a>
+        </div>
+    </main>
+</body>
+</html>
