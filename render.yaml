@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: facial-attendance-demo
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    branch: master
+    healthCheckPath: /health
+    autoDeploy: true
