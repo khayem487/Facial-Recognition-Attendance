@@ -18,6 +18,7 @@ ENV/
 
 # Project specific - Personal data protection
 attendance.csv
+users.csv
 imageAttendance/*
 !imageAttendance/README.md
 imagesbase/*
