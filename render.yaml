@@ -4,6 +4,6 @@ services:
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile
-    branch: master
+    branch: main
     healthCheckPath: /health
     autoDeploy: true
