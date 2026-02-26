@@ -1,29 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facial Attendance System</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Facial Attendance Demo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <a href="{{ url_for('index') }}" class="logo">FACIAL ATTENDANCE</a>
-            <div class="nav-links">
-                <a href="{{ url_for('index') }}" class="active">Home</a>
-                <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
-                <a href="{{ url_for('create_user') }}">Create New User</a>
-            </div>
-        </div>
-    </nav>
-    <main class="content">
-        <h1>Welcome to the Facial Attendance System</h1>
-        <p>This system allows you to track employee attendance using facial recognition technology.</p>
-        <div class="action-buttons">
-            <a href="{{ url_for('mark_attendance_page') }}" class="btn">Mark Attendance</a>
-            <a href="{{ url_for('create_user') }}" class="btn">Create New User</a>
-        </div>
-    </main>
+  <nav class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="logo">Facial Attendance Demo</a>
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}" class="active">Home</a>
+        <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
+        <a href="{{ url_for('create_user') }}">Create User</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <section class="hero">
+      <h1>Smart Attendance (Web Demo)</h1>
+      <p>
+        Register users with webcam snapshots, then mark attendance by face match.
+        Uses full recognition when available, with a lightweight fallback mode for cloud hosting.
+      </p>
+      <div class="actions">
+        <a class="btn" href="{{ url_for('mark_attendance_page') }}">Start Attendance</a>
+        <a class="btn secondary" href="{{ url_for('create_user') }}">Register New User</a>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <article class="card">
+        <h3>System status</h3>
+        <p id="health-summary" class="muted">Loading status...</p>
+      </article>
+
+      <article class="card">
+        <h3>How to get good results</h3>
+        <ul class="list">
+          <li>Register each user in good lighting, face centered.</li>
+          <li>Keep camera stable while marking attendance.</li>
+          <li>Avoid backlight and low-resolution webcam streams.</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

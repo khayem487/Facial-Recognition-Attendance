@@ -1,35 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mark Attendance</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mark Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <a href="{{ url_for('index') }}" class="logo">FACIAL ATTENDANCE</a>
-            <div class="nav-links">
-                <a href="{{ url_for('index') }}" class="active">Home</a>
-                <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
-                <a href="{{ url_for('create_user') }}">Create New User</a>
-            </div>
+  <nav class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="logo">Facial Attendance Demo</a>
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('mark_attendance_page') }}" class="active">Mark Attendance</a>
+        <a href="{{ url_for('create_user') }}">Create User</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="content grid two">
+    <section class="card">
+      <h2>Live Attendance</h2>
+      <p class="muted">Start camera and keep the face centered.</p>
+
+      <div class="video-shell">
+        <video id="attendance-video" autoplay playsinline></video>
+      </div>
+
+      <div class="actions">
+        <button id="start-attendance" class="btn">Start Camera</button>
+        <button id="stop-attendance" class="btn secondary" disabled>Stop Camera</button>
+      </div>
+
+      <div id="attendance-status" class="status-box hidden">
+        <strong>Match detected</strong>
+        <div class="metrics">
+          <div class="metric">
+            <div class="label">Name</div>
+            <div id="employee-name" class="value">-</div>
+          </div>
+          <div class="metric">
+            <div class="label">Mode</div>
+            <div id="employee-mode" class="value">-</div>
+          </div>
+          <div class="metric">
+            <div class="label">Confidence</div>
+            <div id="employee-confidence" class="value">-</div>
+          </div>
         </div>
-    </nav>
-    <main class="content">
-        <div class="mark-attendance-container">
-            <h1>Mark Attendance</h1>
-            <div class="camera-box">
-                <div id="camera-feed" style="width: 100%; height: 400px; background: #ddd;"></div>
-                <button id="start-attendance" class="btn">Start Camera</button>
-            </div>
-            <div id="attendance-status" class="status" style="display: none; margin-top: 20px;">
-                <h2>Attendance Marked!</h2>
-                <p>Employee Name: <span id="employee-name">N/A</span></p>
-            </div>
-        </div>
-    </main>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Recent attendance</h3>
+      <ul id="recent-attendance-list" class="list">
+        <li class="muted">Loading...</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

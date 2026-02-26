@@ -7,9 +7,10 @@ This repository now includes a **cloud-ready web demo** (Render free tier) and a
 ## What runs in cloud demo mode
 
 - Browser webcam capture (client-side)
-- Frame processing in Flask backend
+- User registration page (capture + save face snapshots)
+- Attendance marking page with live status + recent logs
 - Attendance logging to `attendance.csv`
-- Fallback face detection (OpenCV Haar cascade)
+- Lightweight fallback recognition using OpenCV face detection + face histogram matching
 
 > Full face-encoding recognition with `face_recognition` is optional and intended for local/full installs.
 
@@ -71,4 +72,4 @@ Facial-Recognition-Attendance/
 
 ## Privacy note
 
-`attendance.csv` and real face images are ignored by git (`.gitignore`) to avoid publishing personal data.
+`attendance.csv`, `users.csv`, and real face images are ignored by git (`.gitignore`) to avoid publishing personal data.

@@ -1,48 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create New User</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create User</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <a href="{{ url_for('index') }}" class="logo">FACIAL ATTENDANCE</a>
-            <div class="nav-links">
-                <a href="{{ url_for('index') }}" class="active">Home</a>
-                <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
-                <a href="{{ url_for('create_user') }}">Create New User</a>
-            </div>
+  <nav class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="logo">Facial Attendance Demo</a>
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
+        <a href="{{ url_for('create_user') }}" class="active">Create User</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="content grid two">
+    <section class="card">
+      <h2>Register new user</h2>
+      <p class="muted">Fill details, start camera, then capture and save.</p>
+
+      <form id="create-user-form">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" required placeholder="e.g. Sarah Martin" />
+
+        <label for="id">Employee ID</label>
+        <input type="text" id="id" name="id" placeholder="e.g. EMP-102" />
+
+        <label for="mobile">Mobile Number</label>
+        <input type="text" id="mobile" name="mobile" placeholder="e.g. +33 6 ..." />
+
+        <label for="designation">Designation</label>
+        <input type="text" id="designation" name="designation" placeholder="e.g. Data Analyst" />
+
+        <label for="salary">Salary</label>
+        <input type="text" id="salary" name="salary" placeholder="Optional" />
+
+        <div class="actions">
+          <button type="button" id="start-camera-btn" class="btn">Start Camera</button>
+          <button type="button" id="capture-user-btn" class="btn secondary" disabled>Capture & Save User</button>
         </div>
-    </nav>
-    <main class="content">
-        <div class="create-user-container">
-            <h1>Create New User</h1>
-            <form id="create-user-form">
-                <label for="name">Name:</label>
-                <input type="text" id="name" name="name" required placeholder="Enter employee name">
+      </form>
 
-                <label for="id">ID:</label>
-                <input type="text" id="id" name="id" required placeholder="Enter employee ID">
+      <div id="register-result" class="feedback muted">No user captured yet.</div>
+    </section>
 
-                <label for="mobile">Mobile Number:</label>
-                <input type="text" id="mobile" name="mobile" required placeholder="Enter mobile number">
+    <section class="card">
+      <h3>Camera</h3>
+      <div class="video-shell">
+        <video id="register-video" autoplay playsinline></video>
+      </div>
 
-                <label for="designation">Designation:</label>
-                <input type="text" id="designation" name="designation" placeholder="Enter designation">
+      <h3 style="margin-top: 16px">Registered users</h3>
+      <ul id="users-list" class="list">
+        <li class="muted">Loading...</li>
+      </ul>
+    </section>
+  </main>
 
-                <label for="salary">Salary:</label>
-                <input type="text" id="salary" name="salary" placeholder="Enter salary">
-
-                <button type="button" id="start-camera-btn" class="btn">Start Camera</button>
-            </form>
-            <div id="camera-feed" class="camera-box">
-                <div id="camera-view"></div>
-            </div>
-        </div>
-    </main>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
