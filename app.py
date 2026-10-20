@@ -29,9 +29,17 @@ FACE_CASCADE = cv2.CascadeClassifier(CASCADE_PATH)
 KNOWN_USERS = []
 LAST_MARKS = {}
 FULL_MODE = False
+BLOB_STORAGE = None
+if os.environ.get("BLOB_READ_WRITE_TOKEN") or os.environ.get("BLOB_STORE_ID"):
+    from blob_storage import BlobStorage
+    BLOB_STORAGE = BlobStorage()
+
+app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
 
 def ensure_storage():
+    if BLOB_STORAGE is not None:
+        return
     os.makedirs(IMAGE_DIR, exist_ok=True)
 
     if not os.path.exists(USERS_FILE):
@@ -124,6 +132,8 @@ def compute_face_signature(face_bgr):
 
 
 def load_users_metadata():
+    if BLOB_STORAGE is not None:
+        return {record["metadata"]["key"]: record["metadata"] for record in BLOB_STORAGE.users()}
     if not os.path.exists(USERS_FILE):
         return {}
 
@@ -168,12 +178,22 @@ def build_known_users():
     metadata = load_users_metadata()
     users = []
 
-    for filename in os.listdir(IMAGE_DIR):
+    if BLOB_STORAGE is not None:
+        images = [
+            (record["metadata"]["image_file"], cv2.imdecode(
+                np.frombuffer(base64.b64decode(record["image"]), dtype=np.uint8), cv2.IMREAD_COLOR
+            ))
+            for record in BLOB_STORAGE.users()
+        ]
+    else:
+        images = [(filename, None) for filename in os.listdir(IMAGE_DIR)]
+
+    for filename, stored_image in images:
         if not filename.lower().endswith(IMAGE_EXTENSIONS):
             continue
 
         image_path = os.path.join(IMAGE_DIR, filename)
-        image = cv2.imread(image_path)
+        image = stored_image if stored_image is not None else cv2.imread(image_path)
         if image is None:
             print(f"[WARN] Could not load image: {filename}")
             continue
@@ -297,6 +317,16 @@ def mark_attendance(name: str, user_key: str, mode: str, confidence: float | Non
     if last is not None and (now - last).total_seconds() < ATTENDANCE_COOLDOWN_SECONDS:
         return False
 
+    if BLOB_STORAGE is not None:
+        marked = BLOB_STORAGE.mark(
+            {"Name": name, "UserKey": user_key, "Time": now.strftime("%d/%m/%Y %H:%M:%S"),
+             "Mode": mode, "Confidence": f"{confidence:.3f}" if confidence is not None else ""},
+            ATTENDANCE_COOLDOWN_SECONDS,
+        )
+        if marked:
+            LAST_MARKS[user_key] = now
+        return marked
+
     LAST_MARKS[user_key] = now
 
     file_exists = os.path.exists(ATTENDANCE_FILE)
@@ -320,6 +350,8 @@ def mark_attendance(name: str, user_key: str, mode: str, confidence: float | Non
 
 
 def read_recent_attendance(limit=20):
+    if BLOB_STORAGE is not None:
+        return BLOB_STORAGE.recent(limit)
     if not os.path.exists(ATTENDANCE_FILE):
         return []
 
@@ -332,6 +364,17 @@ def read_recent_attendance(limit=20):
 
 ensure_storage()
 refresh_known_users()
+
+
+@app.before_request
+def refresh_shared_references():
+    if BLOB_STORAGE is not None and request.path in ("/process_frame", "/api/users", "/health"):
+        refresh_known_users()
+
+
+@app.errorhandler(413)
+def frame_too_large(error):
+    return jsonify(success=False, error="Frame exceeds the 4 MB limit"), 413
 
 
 @app.route("/")
@@ -357,6 +400,7 @@ def health():
             "mode": "recognition" if FULL_MODE else "fallback",
             "known_users": len(KNOWN_USERS),
             "full_recognition_available": bool(face_recognition is not None),
+            "storage": "private-vercel-blob" if BLOB_STORAGE is not None else "local-files",
         }
     )
 
@@ -418,7 +462,6 @@ def api_register_user():
 
     image_filename = f"{user_key}.jpg"
     image_path = os.path.join(IMAGE_DIR, image_filename)
-    cv2.imwrite(image_path, face_crop)
 
     record = {
         "key": user_key,
@@ -430,7 +473,14 @@ def api_register_user():
         "image_file": image_filename,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
-    upsert_user_metadata(record)
+    if BLOB_STORAGE is not None:
+        encoded_ok, encoded_face = cv2.imencode(".jpg", face_crop)
+        if not encoded_ok:
+            return jsonify(success=False, error="Unable to encode reference image"), 400
+        BLOB_STORAGE.save_user(record, encoded_face.tobytes())
+    else:
+        cv2.imwrite(image_path, face_crop)
+        upsert_user_metadata(record)
     refresh_known_users()
 
     return jsonify(

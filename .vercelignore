@@ -1,0 +1,9 @@
+.venv
+.git
+.env*
+tests
+attendance.csv
+users.csv
+imageAttendance/*
+!imageAttendance/README.md
+__pycache__

@@ -73,3 +73,24 @@ Facial-Recognition-Attendance/
 ## Privacy note
 
 `attendance.csv`, `users.csv`, and real face images are ignored by git (`.gitignore`) to avoid publishing personal data.
+
+## Vercel deployment — actual Flask application
+
+**Live application: https://khayem-facial-attendance.vercel.app/**
+
+Vercel runs the existing Flask routes, original webcam interface, OpenCV Haar face detection and histogram matching used by the Render cloud demo. It is not the static browser simulation previously linked from the portfolio. The optional `face_recognition`/dlib mode remains available for full local installations; this cloud deployment reports `mode: fallback` and matches with `fallback-hist`, as the original Render demo did.
+
+Vercel has a read-only application filesystem. `blob_storage.py` therefore provides a private Vercel Blob adapter for reference images, registration metadata and attendance history. Private image objects have no anonymous public access. Separate event objects and conditional cooldown claims keep history shared across instances and prevent duplicate pointages. Short-lived in-process caches reduce repeated listings. Local and Render deployments without Blob credentials retain their CSV/filesystem backend.
+
+Python is pinned to 3.12. OpenCV is pinned to 4.12.0.88 because OpenCV 5 removes the `CascadeClassifier` API used by this application. `vercel.json` exports the original Flask application and excludes local personal data, environments and tests from the function bundle.
+
+Connect a private Blob store to this project, with `BLOB_READ_WRITE_TOKEN` set in the Vercel project environment. The deployed store began empty: existing face images and CSV records were not uploaded or migrated. Credentials stay in the project environment and ignored `.env*` files.
+
+```sh
+npx vercel@64.7.0 deploy --prod
+python tests/smoke_deployment.py https://khayem-facial-attendance.vercel.app --face-image /path/to/public-test-fixture.jpg
+```
+
+The smoke test must use a deliberately disposable test identity and a supplied public fixture, never a personal photo. It creates one test registration and attendance event; the store owner must remove those scoped test objects afterward. On 20 October 2026 the actual deployed registration, server-side face match, attendance history and duplicate cooldown passed. All three test objects were removed afterward; the demo returned to zero registered users.
+
+The observed health request took 0.68 seconds, registration 2.46 seconds and recognition with persistence 2.24 seconds. These are individual measurements, not latency or uptime guarantees. Vercel Functions can cold-start and have free-plan quotas. Render configuration remains available as a fallback.

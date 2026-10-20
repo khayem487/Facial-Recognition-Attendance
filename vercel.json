@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "flask",
+  "regions": ["cdg1"],
+  "functions": {
+    "app.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{.venv/**,tests/**,docs/**,attendance.py,basics.py,**/*.csv,imageAttendance/**}"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [{"key": "Permissions-Policy", "value": "camera=(self), microphone=()"}]
+    }
+  ]
+}
