@@ -78,6 +78,13 @@ Facial-Recognition-Attendance/
 
 **Live application: https://khayem-facial-attendance.vercel.app/**
 
+The Vercel project is connected to this GitHub repository. Pushing to `main`
+automatically builds production; other branches create protected previews.
+Blob access remains configured in the Vercel environment, outside Git.
+Private Blob storage protects object access; it does not itself authenticate
+visitors to this application's public registration and attendance routes.
+Use fictional test identities for this public demonstration.
+
 Vercel runs the existing Flask routes, original webcam interface, OpenCV Haar face detection and histogram matching used by the Render cloud demo. It is not the static browser simulation previously linked from the portfolio. The optional `face_recognition`/dlib mode remains available for full local installations; this cloud deployment reports `mode: fallback` and matches with `fallback-hist`, as the original Render demo did.
 
 Vercel has a read-only application filesystem. `blob_storage.py` therefore provides a private Vercel Blob adapter for reference images, registration metadata and attendance history. Private image objects have no anonymous public access. Separate event objects and conditional cooldown claims keep history shared across instances and prevent duplicate pointages. Short-lived in-process caches reduce repeated listings. Local and Render deployments without Blob credentials retain their CSV/filesystem backend.
