@@ -1,53 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Facial Attendance Demo</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-</head>
-<body>
-  <nav class="navbar">
-    <div class="container">
-      <a href="{{ url_for('index') }}" class="logo">Facial Attendance Demo</a>
-      <div class="nav-links">
-        <a href="{{ url_for('index') }}" class="active">Home</a>
-        <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
-        <a href="{{ url_for('create_user') }}">Create User</a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="content">
-    <section class="hero">
-      <h1>Smart Attendance (Web Demo)</h1>
-      <p>
-        Register users with webcam snapshots, then mark attendance by face match.
-        Uses full recognition when available, with a lightweight fallback mode for cloud hosting.
-      </p>
-      <div class="actions">
-        <a class="btn" href="{{ url_for('mark_attendance_page') }}">Start Attendance</a>
-        <a class="btn secondary" href="{{ url_for('create_user') }}">Register New User</a>
-      </div>
-    </section>
-
-    <section class="grid two">
-      <article class="card">
-        <h3>System status</h3>
-        <p id="health-summary" class="muted">Loading status...</p>
-      </article>
-
-      <article class="card">
-        <h3>How to get good results</h3>
-        <ul class="list">
-          <li>Register each user in good lighting, face centered.</li>
-          <li>Keep camera stable while marking attendance.</li>
-          <li>Avoid backlight and low-resolution webcam streams.</li>
-        </ul>
-      </article>
-    </section>
-  </main>
-
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Mon espace · Pointage facial{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">VOTRE ESPACE</p><h1>De la photo au pointage.</h1><p class="muted">Enregistrez une référence, puis retrouvez vos pointages ici.</p></div><a class="btn" href="{{ url_for('create_user') }}">Ajouter un profil ↗</a></div>
+<section class="stats-grid" aria-label="Votre démonstration">
+  <article class="stat"><span class="muted">Vos profils</span><strong id="home-user-count">—</strong><span class="muted">Dans cet espace uniquement</span></article>
+  <article class="stat"><span class="muted">Moteur disponible</span><strong class="stat-text" id="health-summary">Chargement…</strong><span class="muted">Traitement sur le serveur</span></article>
+  <article class="stat"><span class="muted">Conservation</span><strong class="stat-text" id="storage-summary">Chargement…</strong><span class="muted">Jusqu'à suppression du profil</span></article>
+</section>
+<section class="grid two">
+  <article class="card action-card"><span class="step">01</span><h2>Créer une référence</h2><p class="muted">Un nom de démonstration et une photo suffisent. Vos profils ne sont pas partagés avec les autres visiteurs.</p><a class="text-link" href="{{ url_for('create_user') }}">Gérer mes profils →</a></article>
+  <article class="card action-card"><span class="step">02</span><h2>Tester le rapprochement</h2><p class="muted">Activez la caméra à votre rythme. Le résultat et l'historique restent dans votre espace.</p><a class="text-link" href="{{ url_for('mark_attendance_page') }}">Ouvrir le pointage →</a></article>
+</section>
+<aside class="notice"><strong>Vous gardez la main sur les références.</strong><p>Les images de la caméra sont envoyées au serveur pendant l'inscription ou le pointage. La référence enregistrée est conservée ; la vidéo complète ne l'est pas. Depuis Profils, vous pouvez supprimer une référence et ses pointages associés.</p></aside>
+{% endblock %}

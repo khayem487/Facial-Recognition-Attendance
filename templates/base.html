@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1422">
+  <title>{% block title %}Pointage facial{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v='20261029') }}">
+  <script type="module" src="{{ url_for('static', filename='script.js', v='20261029') }}"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+  <header class="navbar"><div class="container">
+    <a class="logo" href="{{ url_for('index') }}"><span class="brand-mark" aria-hidden="true">P</span> Pointage facial</a>
+    <nav class="nav-links" aria-label="Navigation principale">
+      <a href="{{ url_for('index') }}" {% if request.endpoint == 'index' %}aria-current="page"{% endif %}>Mon espace</a>
+      <a href="{{ url_for('create_user') }}" {% if request.endpoint == 'create_user' %}aria-current="page"{% endif %}>Profils</a>
+      <a href="{{ url_for('mark_attendance_page') }}" {% if request.endpoint == 'mark_attendance_page' %}aria-current="page"{% endif %}>Pointage</a>
+    </nav>
+  </div></header>
+  <main id="main" class="content">
+    <div class="workspace-line"><span class="status-dot" aria-hidden="true"></span><span id="workspace-status" role="status">Ouverture de votre espace…</span><span class="demo-label">Démonstration</span></div>
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <p>Cet espace est lié à ce navigateur. Effacer ses cookies ou changer de navigateur crée un nouvel espace.</p>
+    <p>Le rapprochement visuel est expérimental. Son score n'est pas une certitude d'identité.</p>
+  </footer>
+</body>
+</html>

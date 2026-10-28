@@ -1,99 +1,151 @@
-"""Private durable storage for the existing Flask attendance application.
-
-Reference photos never receive a public URL. Separate user/event objects avoid
-overwriting another request's registration or attendance history.
-"""
+"""Private, browser-scoped Blob storage; legacy shared objects stay untouched."""
 
 import base64
+from datetime import datetime, timezone
 import json
 import time
-from datetime import datetime
 from uuid import uuid4
 
 from vercel.blob import sync as blob
 from vercel.blob.errors import BlobError, BlobNotFoundError, BlobPreconditionFailedError
 
+from workspace_storage import checked_key, checked_namespace, storage_operation, StorageLimitError
+
 
 class BlobStorage:
-    def __init__(self, prefix="attendance-app/"):
-        self.prefix = prefix
-        self._users = None
-        self._loaded_at = 0
+    def __init__(self, namespace):
+        self.prefix = "attendance-app/workspaces/" + checked_namespace(namespace) + "/"
 
     def _get(self, path):
         result = blob.get_blob(self.prefix + path, access="private")
         return json.loads(result.body), result.metadata.etag
 
     def _put(self, path, value, overwrite=False):
-        return blob.put_blob(
-            self.prefix + path,
-            json.dumps(value, ensure_ascii=False).encode("utf-8"),
-            access="private",
-            content_type="application/json",
-            allow_overwrite=overwrite,
-            cache_control_max_age=0,
-        )
+        return blob.put_blob(self.prefix + path,
+                             json.dumps(value, ensure_ascii=False).encode("utf-8"),
+                             access="private", content_type="application/json",
+                             allow_overwrite=overwrite, cache_control_max_age=0)
 
-    def invalidate_users(self):
-        self._users = None
+    def _entries(self, path):
+        prefix = self.prefix + path
+        return [entry for entry in blob.query_blobs(prefix=prefix)
+                if entry.pathname.startswith(prefix)]
 
+    def _missing(self, path):
+        try:
+            return self._get(path)
+        except BlobNotFoundError:
+            return None
+
+    def _delete(self, path, **kwargs):
+        try:
+            blob.delete_blob(self.prefix + path, **kwargs)
+        except BlobNotFoundError:
+            pass
+
+    def _deleted_keys(self):
+        return {entry.pathname.rsplit("/", 1)[-1].removesuffix(".json")
+                for entry in self._entries("deleted/")}
+
+    @storage_operation
     def users(self, force=False):
-        # A short local cache avoids a storage listing on every webcam frame.
-        # Other warm instances discover a new registration within 3 seconds.
-        if not force and self._users is not None and time.monotonic() - self._loaded_at < 3:
-            return self._users
+        # Each request reads this workspace afresh. A warm instance cannot keep
+        # recognizing a profile removed by a different instance.
+        deleted = self._deleted_keys()
         records = []
-        for item in blob.query_blobs(prefix=self.prefix + "users/"):
-            result = blob.get_blob(item.url, access="private")
-            records.append(json.loads(result.body))
-        self._users = records
-        self._loaded_at = time.monotonic()
+        for entry in self._entries("users/"):
+            key = entry.pathname.rsplit("/", 1)[-1].removesuffix(".json")
+            if key in deleted:
+                continue
+            try:
+                record, _ = self._get("users/" + checked_key(key) + ".json")
+            except BlobNotFoundError:
+                continue
+            if record["metadata"]["key"] == key:
+                records.append(record)
         return records
 
-    def save_user(self, record, jpeg_bytes):
-        self._put(
-            "users/" + record["key"] + ".json",
-            {"metadata": record, "image": base64.b64encode(jpeg_bytes).decode("ascii")},
-            overwrite=True,
-        )
-        self.invalidate_users()
+    @storage_operation
+    def has_user(self, key):
+        key = checked_key(key)
+        return self._missing("deleted/" + key + ".json") is None and self._missing("users/" + key + ".json") is not None
 
+    @storage_operation
+    def save_user(self, record, jpeg_bytes):
+        key = checked_key(record["key"])
+        if self._missing("deleted/" + key + ".json") is not None:
+            raise ValueError("A deleted profile key cannot be reused")
+        if len(self.users()) >= 25:
+            raise StorageLimitError("This workspace already contains 25 profiles")
+        self._put("users/" + key + ".json",
+                  {"metadata": record, "image": base64.b64encode(jpeg_bytes).decode("ascii")})
+
+    @storage_operation
     def mark(self, row, cooldown_seconds):
-        key = row["UserKey"]
+        key, now = checked_key(row["UserKey"]), time.time()
+        if not self.has_user(key):
+            return False
         claim_path = "cooldowns/" + key + ".json"
-        now = time.time()
-        try:
-            previous, etag = self._get(claim_path)
-        except BlobNotFoundError:
-            previous = None
+        previous = self._missing(claim_path)
         if previous is not None:
-            if now - previous["timestamp"] < cooldown_seconds:
+            record, etag = previous
+            if now - record["timestamp"] < cooldown_seconds:
                 return False
-            # A conditional delete prevents two instances replacing one lease.
             try:
                 blob.delete_blob(self.prefix + claim_path, if_match=etag)
             except (BlobNotFoundError, BlobPreconditionFailedError):
                 return False
         try:
             claim = self._put(claim_path, {"timestamp": now})
-        except BlobError as exc:
-            # A simultaneous request may have created the same lease first.
-            # Do not swallow credentials, quota or other operational failures.
-            if exc.code in ("blob_already_exists", "already_exists", "precondition_failed") or exc.status_code in (409, 412):
+        except BlobError as error:
+            if error.code in ("blob_already_exists", "already_exists", "precondition_failed") or error.status_code in (409, 412):
                 return False
             raise
-        path = "events/" + datetime.now().strftime("%Y%m%dT%H%M%S") + "-" + uuid4().hex + ".json"
+        event = "events/" + key + "/" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f") + "-" + uuid4().hex + ".json"
         try:
-            self._put(path, row)
+            self._put(event, row)
+            if not self.has_user(key):
+                self._delete(event)
+                self._delete(claim_path, if_match=claim.etag)
+                return False
         except Exception:
-            blob.delete_blob(self.prefix + claim_path, if_match=claim.etag)
+            self._delete(claim_path, if_match=claim.etag)
             raise
         return True
 
+    @storage_operation
     def recent(self, limit=20):
-        entries = sorted(
-            blob.query_blobs(prefix=self.prefix + "events/"),
-            key=lambda entry: entry.pathname,
-            reverse=True,
-        )[:limit]
-        return [json.loads(blob.get_blob(entry.url, access="private").body) for entry in entries]
+        existing = {record["metadata"]["key"] for record in self.users()}
+        rows = []
+        for entry in sorted(self._entries("events/"), key=lambda item: item.pathname, reverse=True):
+            relative = entry.pathname.removeprefix(self.prefix)
+            parts = relative.split("/")
+            if len(parts) != 3 or parts[1] not in existing:
+                continue
+            try:
+                row, _ = self._get(relative)
+            except BlobNotFoundError:
+                continue
+            if row.get("UserKey") == parts[1]:
+                rows.append(row)
+        return sorted(rows, key=lambda row: row.get("RecordedAt", ""), reverse=True)[:max(1, min(int(limit), 100))]
+
+    @storage_operation
+    def delete_user(self, key):
+        key = checked_key(key)
+        tombstone = "deleted/" + key + ".json"
+        if self._missing("users/" + key + ".json") is None:
+            if self._missing(tombstone) is None:
+                return False
+            # An already completed deletion is missing, just like local SQLite.
+            # A partial failed cleanup remains retryable while objects exist.
+            if not self._entries("events/" + key + "/") and self._missing("cooldowns/" + key + ".json") is None:
+                return False
+        # Hide the profile first; retries can finish physical cleanup if a Blob
+        # operation fails. The tombstone contains no name, image or event data.
+        self._put(tombstone, {"deleted_at": datetime.now(timezone.utc).isoformat()}, overwrite=True)
+        self._delete("users/" + key + ".json")
+        for entry in self._entries("events/" + key + "/"):
+            self._delete(entry.pathname.removeprefix(self.prefix))
+        self._delete("cooldowns/" + key + ".json")
+        return True

@@ -1,66 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Create User</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-</head>
-<body>
-  <nav class="navbar">
-    <div class="container">
-      <a href="{{ url_for('index') }}" class="logo">Facial Attendance Demo</a>
-      <div class="nav-links">
-        <a href="{{ url_for('index') }}">Home</a>
-        <a href="{{ url_for('mark_attendance_page') }}">Mark Attendance</a>
-        <a href="{{ url_for('create_user') }}" class="active">Create User</a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="content grid two">
-    <section class="card">
-      <h2>Register new user</h2>
-      <p class="muted">Fill details, start camera, then capture and save.</p>
-
-      <form id="create-user-form">
-        <label for="name">Name</label>
-        <input type="text" id="name" name="name" required placeholder="e.g. Sarah Martin" />
-
-        <label for="id">Employee ID</label>
-        <input type="text" id="id" name="id" placeholder="e.g. EMP-102" />
-
-        <label for="mobile">Mobile Number</label>
-        <input type="text" id="mobile" name="mobile" placeholder="e.g. +33 6 ..." />
-
-        <label for="designation">Designation</label>
-        <input type="text" id="designation" name="designation" placeholder="e.g. Data Analyst" />
-
-        <label for="salary">Salary</label>
-        <input type="text" id="salary" name="salary" placeholder="Optional" />
-
-        <div class="actions">
-          <button type="button" id="start-camera-btn" class="btn">Start Camera</button>
-          <button type="button" id="capture-user-btn" class="btn secondary" disabled>Capture & Save User</button>
-        </div>
-      </form>
-
-      <div id="register-result" class="feedback muted">No user captured yet.</div>
-    </section>
-
-    <section class="card">
-      <h3>Camera</h3>
-      <div class="video-shell">
-        <video id="register-video" autoplay playsinline></video>
-      </div>
-
-      <h3 style="margin-top: 16px">Registered users</h3>
-      <ul id="users-list" class="list">
-        <li class="muted">Loading...</li>
-      </ul>
-    </section>
-  </main>
-
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Mes profils · Pointage facial{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">01 / PROFILS</p><h1>Vos références, votre espace.</h1><p class="muted">Ajoutez un profil de démonstration ou supprimez une référence existante.</p></div></div>
+<div class="grid two capture-grid">
+  <section class="card">
+    <h2>Ajouter un profil</h2><p class="muted">Choisissez un alias de démonstration. Aucun téléphone ni salaire n'est demandé.</p>
+    <form id="create-user-form">
+      <div class="field"><label for="name">Nom ou alias <span aria-hidden="true">*</span></label><input id="name" name="name" required maxlength="80" placeholder="Ex. Camille Démo" autocomplete="off"></div>
+      <div class="field"><label for="id">Identifiant <span class="optional">facultatif</span></label><input id="id" name="id" maxlength="40" placeholder="Ex. DEMO-01" autocomplete="off"></div>
+      <div class="field"><label for="designation">Rôle <span class="optional">facultatif</span></label><input id="designation" name="designation" maxlength="80" placeholder="Ex. Étudiant" autocomplete="off"></div>
+      <p class="small muted" id="capture-note">Enregistrer conserve une photo de référence dans votre espace, jusqu'à sa suppression depuis la liste ci-dessous.</p>
+      <div class="actions"><button type="button" id="start-camera-btn" class="btn">Activer la caméra</button><button type="button" id="stop-camera-btn" class="btn secondary" disabled>Arrêter</button><button type="button" id="capture-user-btn" class="btn secondary" aria-describedby="capture-note" disabled>Capturer et enregistrer</button></div>
+    </form>
+    <p id="register-result" class="feedback muted" role="status" aria-live="polite">La caméra reste éteinte tant que vous ne l'activez pas.</p>
+  </section>
+  <section class="card camera-card"><div class="card-heading"><h2>Aperçu caméra</h2><span class="pill">Une personne à la fois</span></div>
+    <div class="video-shell"><video id="register-video" autoplay muted playsinline aria-label="Aperçu pour la photo de référence"></video><div class="camera-placeholder" id="register-placeholder"><span class="camera-outline" aria-hidden="true"></span><strong>Prêt quand vous l'êtes.</strong><span>Visage centré, lumière de face.</span></div></div>
+    <p class="small muted">Le cadrage est réduit avant l'envoi. Gardez le visage visible et évitez le contre-jour.</p>
+  </section>
+</div>
+<section class="card profiles-card"><div class="card-heading"><div><h2>Vos profils enregistrés</h2><p class="muted small">Seuls les profils de ce navigateur sont affichés.</p></div><button type="button" id="refresh-users" class="btn secondary compact">Actualiser</button></div><ul id="users-list" class="profile-list" aria-live="polite"><li class="empty">Chargement de vos profils…</li></ul><p id="delete-result" class="feedback hidden" role="status"></p></section>
+<dialog id="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><form method="dialog">
+  <p class="eyebrow">SUPPRESSION DU PROFIL</p><h2 id="delete-title">Supprimer cette référence ?</h2><p id="delete-description">La photo de référence, les informations du profil et ses pointages associés seront supprimés de votre espace.</p><p id="delete-profile-name" class="delete-name"></p><p id="delete-dialog-error" class="feedback error hidden" role="alert"></p>
+  <div class="actions dialog-actions"><button id="cancel-delete" value="cancel" class="btn secondary">Annuler</button><button type="button" id="confirm-delete" class="btn danger">Supprimer le profil</button></div>
+</form></dialog>
+{% endblock %}

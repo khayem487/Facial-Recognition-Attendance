@@ -1,103 +1,70 @@
-# Facial Recognition Attendance System
+# Facial Recognition Attendance
 
-Python + Flask project for attendance marking from webcam frames.
+[Open the live demo](https://khayem-facial-attendance.vercel.app/) · [Local installation](#run-locally) · [Validation](#validation)
 
-This repository now includes a **cloud-ready web demo** (Render free tier) and a **full local mode** with `face_recognition`.
+A real Flask/OpenCV attendance application with webcam registration, reference matching and persistent attendance history. Each browser has its own demonstration workspace.
 
-## What runs in cloud demo mode
+## What you can try
 
-- Browser webcam capture (client-side)
-- User registration page (capture + save face snapshots)
-- Attendance marking page with live status + recent logs
-- Attendance logging to `attendance.csv`
-- Lightweight fallback recognition using OpenCV face detection + face histogram matching
+| Step | Behavior |
+| --- | --- |
+| Add a profile | Choose a demo alias, activate the camera, then explicitly capture and save a reference. |
+| Mark attendance | Compare webcam images with references in this browser's workspace. Repeated matches within 20 seconds produce one pointage. |
+| Review | Read only your workspace's profiles and attendance history. |
+| Delete | Remove a profile, its reference image and associated pointages after confirming in the interface. |
 
-> Full face-encoding recognition with `face_recognition` is optional and intended for local/full installs.
+Camera capture starts only after a click. Stopping the camera or leaving the page releases its tracks; an image already accepted by the server may still finish processing. The microphone is never requested. Frames are reduced to at most 1280 x 720 before transmission.
 
-## One-click deploy (Render)
+The cloud demo uses OpenCV Haar face detection and histogram similarity. That score is not a probability of identity or a production access-control decision. The optional local `face_recognition` engine remains available when installed.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/khayem487/Facial-Recognition-Attendance)
+## Private browser workspaces
 
-Render free instance may sleep after inactivity.
+- An unpredictable 256-bit HttpOnly, SameSite=Strict cookie grants access to one workspace. This is browser isolation, not a user-account login or cross-device synchronization.
+- The raw cookie is never returned in JSON, placed in a URL or stored in source control. Server namespaces use its SHA-256 hash.
+- Mutating routes require a derived CSRF header and same-origin requests. Personal API responses are noncacheable.
+- On Vercel, references and metadata remain in private Blob objects under that workspace's prefix. Local mode uses one SQLite database per workspace.
+- Names, identifiers and roles are rendered as text. The interface does not request phone numbers or salary.
+- Deletion removes the selected profile, reference image, cooldown and associated history. Blob deletion first places a nonpersonal tombstone so another warm instance cannot keep matching a deleted reference.
+- Earlier shared CSV/images/Blob objects are neither exposed to new visitors nor automatically imported or deleted.
 
-## Tech stack
-
-- Python 3.11
-- Flask
-- OpenCV
-- NumPy
-- Gunicorn
-- Optional: `face_recognition`
+The workspace cookie lasts 30 days. Delete your profiles before clearing site cookies if you want the stored references removed. Losing or expiring the cookie loses access to that workspace; this version has no account recovery or automatic retention cleanup. Browser isolation does not authenticate the person using a shared browser.
 
 ## Run locally
 
-### A) Cloud-equivalent mode (lightweight, no dlib)
+Use Python 3.12 with functional OpenCV native bindings:
 
-```bash
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-# source .venv/bin/activate
-
-pip install -r requirements.txt
-python app.py
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe app.py
 ```
 
-Open: `http://127.0.0.1:5000/mark_attendance_page`
+Open http://127.0.0.1:5000/. Local data is created in the ignored `.attendance-workspaces/` directory. Set `ATTENDANCE_DATA_DIR` to choose another local directory.
 
-### B) Full recognition mode (optional)
+For the optional full local engine, install `requirements-full.txt`. Existing legacy images are not silently imported into a visitor's workspace.
 
-```bash
-pip install -r requirements-full.txt
-python app.py
+## Vercel deployment
+
+The existing project is connected to this repository: pushes to `main` build production, and other branches produce protected previews.
+
+The private Blob integration supplies `BLOB_READ_WRITE_TOKEN` or platform store access in the Vercel environment. No additional provider, login secret or paid plan is required by browser isolation. Credentials stay outside Git. A storage failure returns a generic error rather than switching silently to temporary local storage.
+
+`vercel.json` retains the actual Flask service and Python 3.12 configuration. OpenCV is pinned to 4.12.0.88 to retain the CascadeClassifier API. The Render/Docker configuration remains available for existing installations.
+
+The live demo persists new workspace data in private Vercel Blob. Local mode persists in SQLite. This does not promise fixed response times or uninterrupted free hosting.
+
+## Validation
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v
+node --test tests/test_workspace_client.mjs
+.\.venv\Scripts\python.exe tests/smoke_deployment.py http://127.0.0.1:5000 --expect-storage local-workspace-sqlite --face-image /path/to/public-test-fixture.jpg
 ```
 
-If `face_recognition` is installed and valid reference images exist in `imageAttendance/`, the app switches to full recognition mode.
+The offline suite covers two-visitor isolation, CSRF/origin checks, bounded image decoding, local SQLite/private Blob parity, persistence, deletion retry, stale-reference removal and untouched legacy data. Frontend checks cover session bootstrap, CSRF headers, errors, bounded capture and honest similarity display.
 
-## Project structure
+The deployment smoke test uses two separate cookie jars. With an explicitly supplied public test fixture it registers one deliberately disposable profile, checks actual face matching, history and cooldown, verifies that another visitor cannot read/match/delete it, then deletes the fixture and verifies it no longer matches. It never opens a webcam or uses a personal image, and cleans up only its own test registration.
 
-```text
-Facial-Recognition-Attendance/
-├── app.py
-├── requirements.txt
-├── requirements-full.txt
-├── Dockerfile
-├── render.yaml
-├── imageAttendance/
-├── static/
-├── templates/
-└── docs/
-```
+## Data and source
 
-## Privacy note
-
-`attendance.csv`, `users.csv`, and real face images are ignored by git (`.gitignore`) to avoid publishing personal data.
-
-## Vercel deployment — actual Flask application
-
-**Live application: https://khayem-facial-attendance.vercel.app/**
-
-The Vercel project is connected to this GitHub repository. Pushing to `main`
-automatically builds production; other branches create protected previews.
-Blob access remains configured in the Vercel environment, outside Git.
-Private Blob storage protects object access; it does not itself authenticate
-visitors to this application's public registration and attendance routes.
-Use fictional test identities for this public demonstration.
-
-Vercel runs the existing Flask routes, original webcam interface, OpenCV Haar face detection and histogram matching used by the Render cloud demo. It is not the static browser simulation previously linked from the portfolio. The optional `face_recognition`/dlib mode remains available for full local installations; this cloud deployment reports `mode: fallback` and matches with `fallback-hist`, as the original Render demo did.
-
-Vercel has a read-only application filesystem. `blob_storage.py` therefore provides a private Vercel Blob adapter for reference images, registration metadata and attendance history. Private image objects have no anonymous public access. Separate event objects and conditional cooldown claims keep history shared across instances and prevent duplicate pointages. Short-lived in-process caches reduce repeated listings. Local and Render deployments without Blob credentials retain their CSV/filesystem backend.
-
-Python is pinned to 3.12. OpenCV is pinned to 4.12.0.88 because OpenCV 5 removes the `CascadeClassifier` API used by this application. `vercel.json` exports the original Flask application and excludes local personal data, environments and tests from the function bundle.
-
-Connect a private Blob store to this project, with `BLOB_READ_WRITE_TOKEN` set in the Vercel project environment. The deployed store began empty: existing face images and CSV records were not uploaded or migrated. Credentials stay in the project environment and ignored `.env*` files.
-
-```sh
-npx vercel@64.7.0 deploy --prod
-python tests/smoke_deployment.py https://khayem-facial-attendance.vercel.app --face-image /path/to/public-test-fixture.jpg
-```
-
-The smoke test must use a deliberately disposable test identity and a supplied public fixture, never a personal photo. It creates one test registration and attendance event; the store owner must remove those scoped test objects afterward. On 20 October 2026 the actual deployed registration, server-side face match, attendance history and duplicate cooldown passed. All three test objects were removed afterward; the demo returned to zero registered users.
-
-The observed health request took 0.68 seconds, registration 2.46 seconds and recognition with persistence 2.24 seconds. These are individual measurements, not latency or uptime guarantees. Vercel Functions can cold-start and have free-plan quotas. Render configuration remains available as a fallback.
+Private images, workspace databases, cookies, environment files and exports are excluded by `.gitignore` and `.vercelignore`. The application is a portfolio demonstration; it is not a production HR or biometric access-control system.

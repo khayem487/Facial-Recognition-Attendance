@@ -1,64 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mark Attendance</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-</head>
-<body>
-  <nav class="navbar">
-    <div class="container">
-      <a href="{{ url_for('index') }}" class="logo">Facial Attendance Demo</a>
-      <div class="nav-links">
-        <a href="{{ url_for('index') }}">Home</a>
-        <a href="{{ url_for('mark_attendance_page') }}" class="active">Mark Attendance</a>
-        <a href="{{ url_for('create_user') }}">Create User</a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="content grid two">
-    <section class="card">
-      <h2>Live Attendance</h2>
-      <p class="muted">Start camera and keep the face centered.</p>
-
-      <div class="video-shell">
-        <video id="attendance-video" autoplay playsinline></video>
-      </div>
-
-      <div class="actions">
-        <button id="start-attendance" class="btn">Start Camera</button>
-        <button id="stop-attendance" class="btn secondary" disabled>Stop Camera</button>
-      </div>
-
-      <div id="attendance-status" class="status-box hidden">
-        <strong>Match detected</strong>
-        <div class="metrics">
-          <div class="metric">
-            <div class="label">Name</div>
-            <div id="employee-name" class="value">-</div>
-          </div>
-          <div class="metric">
-            <div class="label">Mode</div>
-            <div id="employee-mode" class="value">-</div>
-          </div>
-          <div class="metric">
-            <div class="label">Confidence</div>
-            <div id="employee-confidence" class="value">-</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h3>Recent attendance</h3>
-      <ul id="recent-attendance-list" class="list">
-        <li class="muted">Loading...</li>
-      </ul>
-    </section>
-  </main>
-
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Pointage · Pointage facial{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">02 / POINTAGE</p><h1>Testez votre référence.</h1><p class="muted">Le moteur compare la caméra aux seuls profils de votre espace.</p></div><a class="btn secondary" href="{{ url_for('create_user') }}">Gérer mes profils</a></div>
+<div class="grid two capture-grid">
+  <section class="card camera-card"><div class="card-heading"><h2>Caméra</h2><span class="pill" id="camera-state">Éteinte</span></div>
+    <div class="video-shell"><video id="attendance-video" autoplay muted playsinline aria-label="Aperçu de pointage"></video><div class="camera-placeholder" id="attendance-placeholder"><span class="camera-outline" aria-hidden="true"></span><strong>Un contrôle à votre rythme.</strong><span>Activez la caméra pour commencer.</span></div></div>
+    <div class="actions"><button id="start-attendance" class="btn">Activer la caméra</button><button id="stop-attendance" class="btn secondary" disabled>Arrêter la caméra</button></div>
+    <p id="attendance-feedback" class="feedback muted" role="status" aria-live="polite">Enregistrez d'abord un profil, puis activez la caméra.</p>
+    <div id="attendance-status" class="status-box hidden"><strong>Référence rapprochée</strong><div class="metrics"><div class="metric"><span class="label">Profil</span><strong id="employee-name" class="value">—</strong></div><div class="metric"><span class="label">Moteur</span><strong id="employee-mode" class="value">—</strong></div><div class="metric"><span class="label">Similarité</span><strong id="employee-confidence" class="value">—</strong></div></div></div>
+    <p class="small muted">Les images sont envoyées au serveur pendant le test. Un résultat similaire peut être incorrect : le score ne constitue pas une vérification d'identité.</p>
+  </section>
+  <section class="card"><div class="card-heading"><div><h2>Vos pointages récents</h2><p class="small muted">Les répétitions rapprochées sont regroupées.</p></div><button id="refresh-attendance" class="btn secondary compact">Actualiser</button></div><ul id="recent-attendance-list" class="profile-list" aria-live="polite"><li class="empty">Chargement de votre historique…</li></ul></section>
+</div>
+{% endblock %}
