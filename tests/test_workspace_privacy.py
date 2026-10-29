@@ -389,6 +389,22 @@ class BlobAPITests(APIContract, unittest.TestCase):
         downloads = [path for operation, path in self.fake.calls if operation == "get" and "/cooldowns/" in path]
         self.assertTrue(downloads and all("?version=" in path for path in downloads))
 
+    def test_mismatched_delivery_version_cannot_remove_newer_cooldown(self):
+        key = self.register(self.a)
+        store = self.store(self.a)
+        row = {"UserKey": key, "Name": "TEST", "RecordedAt": "2026-10-29T12:00:00Z"}
+        with patch.object(cloud.time, "time", return_value=100):
+            self.assertTrue(store.mark(row, 20))
+        claim_path = store.prefix + "cooldowns/" + key + ".json"
+        original_claim = self.fake.objects[claim_path]
+        for delivery_etag in (None, "wrong-version"):
+            stale = SimpleNamespace(body=b'{"timestamp":0}', metadata=SimpleNamespace(etag=delivery_etag))
+            with patch.object(self.fake, "get_blob", return_value=stale), patch.object(cloud.time, "time", return_value=121):
+                with self.assertRaises(StorageError):
+                    store.mark(row, 20)
+            self.assertEqual(self.fake.objects[claim_path], original_claim)
+        self.assertEqual(len(store.recent()), 1)
+
     def test_blob_storage_never_lists_or_changes_shared_legacy_objects(self):
         legacy = "attendance-app/users/TEST_LEGACY.json"
         self.fake.objects[legacy] = (b'{"metadata":{"name":"TEST PRIVATE LEGACY"}}', "TEST-etag")

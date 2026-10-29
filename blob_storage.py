@@ -10,7 +10,7 @@ from uuid import uuid4
 from vercel.blob import sync as blob
 from vercel.blob.errors import BlobError, BlobNotFoundError, BlobPreconditionFailedError
 
-from workspace_storage import checked_key, checked_namespace, storage_operation, StorageLimitError
+from workspace_storage import checked_key, checked_namespace, storage_operation, StorageError, StorageLimitError
 
 
 class BlobStorage:
@@ -24,6 +24,8 @@ class BlobStorage:
             metadata = blob.head_blob(self.prefix + path)
             separator = "&" if "?" in metadata.url else "?"
             result = blob.get_blob(metadata.url + separator + "version=" + quote(metadata.etag, safe=""), access="private")
+            if not result.metadata.etag or result.metadata.etag.strip('"') != metadata.etag.strip('"'):
+                raise StorageError("Workspace storage is temporarily unavailable")
             return json.loads(result.body), metadata.etag
         result = blob.get_blob(self.prefix + path, access="private")
         return json.loads(result.body), result.metadata.etag
