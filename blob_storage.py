@@ -4,6 +4,7 @@ import base64
 from datetime import datetime, timezone
 import json
 import time
+from urllib.parse import quote
 from uuid import uuid4
 
 from vercel.blob import sync as blob
@@ -17,8 +18,25 @@ class BlobStorage:
         self.prefix = "attendance-app/workspaces/" + checked_namespace(namespace) + "/"
 
     def _get(self, path):
+        if path.startswith("cooldowns/"):
+            # This pathname is reused. Its catalog ETag selects a new CDN key
+            # after each lease replacement, rather than reading a stale body.
+            metadata = blob.head_blob(self.prefix + path)
+            separator = "&" if "?" in metadata.url else "?"
+            result = blob.get_blob(metadata.url + separator + "version=" + quote(metadata.etag, safe=""), access="private")
+            return json.loads(result.body), metadata.etag
         result = blob.get_blob(self.prefix + path, access="private")
         return json.loads(result.body), result.metadata.etag
+
+    def _exists(self, path):
+        # Delivery GETs may remain cached after deletion. The catalog API is
+        # authoritative for visibility and cleanup; never use a cached photo
+        # download as evidence that a deleted profile still exists.
+        try:
+            blob.head_blob(self.prefix + path)
+            return True
+        except BlobNotFoundError:
+            return False
 
     def _put(self, path, value, overwrite=False):
         return blob.put_blob(self.prefix + path,
@@ -68,12 +86,12 @@ class BlobStorage:
     @storage_operation
     def has_user(self, key):
         key = checked_key(key)
-        return self._missing("deleted/" + key + ".json") is None and self._missing("users/" + key + ".json") is not None
+        return not self._exists("deleted/" + key + ".json") and self._exists("users/" + key + ".json")
 
     @storage_operation
     def save_user(self, record, jpeg_bytes):
         key = checked_key(record["key"])
-        if self._missing("deleted/" + key + ".json") is not None:
+        if self._exists("deleted/" + key + ".json"):
             raise ValueError("A deleted profile key cannot be reused")
         if len(self.users()) >= 25:
             raise StorageLimitError("This workspace already contains 25 profiles")
@@ -134,12 +152,12 @@ class BlobStorage:
     def delete_user(self, key):
         key = checked_key(key)
         tombstone = "deleted/" + key + ".json"
-        if self._missing("users/" + key + ".json") is None:
-            if self._missing(tombstone) is None:
+        if not self._exists("users/" + key + ".json"):
+            if not self._exists(tombstone):
                 return False
             # An already completed deletion is missing, just like local SQLite.
             # A partial failed cleanup remains retryable while objects exist.
-            if not self._entries("events/" + key + "/") and self._missing("cooldowns/" + key + ".json") is None:
+            if not self._entries("events/" + key + "/") and not self._exists("cooldowns/" + key + ".json"):
                 return False
         # Hide the profile first; retries can finish physical cleanup if a Blob
         # operation fails. The tombstone contains no name, image or event data.

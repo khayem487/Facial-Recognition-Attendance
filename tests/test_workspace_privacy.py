@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
+from urllib.parse import unquote, urlsplit
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
@@ -40,14 +41,31 @@ class FakeBlob:
         self.calls = []
         self.fail_event_put = False
         self.fail_profile_delete = False
+        self.stale_cdn = False
+        self.delivery_cache = {}
 
     def get_blob(self, path, **options):
         self.calls.append(("get", path))
         assert options.get("access") == "private"
+        delivery_key = path
+        parsed = urlsplit(path)
+        if parsed.scheme:
+            path = unquote(parsed.path).lstrip("/")
+        if self.stale_cdn and delivery_key in self.delivery_cache:
+            body, etag = self.delivery_cache[delivery_key]
+            return SimpleNamespace(body=body, metadata=SimpleNamespace(etag=etag))
         if path not in self.objects:
             raise cloud.BlobNotFoundError()
         body, etag = self.objects[path]
+        self.delivery_cache[delivery_key] = (body, etag)
         return SimpleNamespace(body=body, metadata=SimpleNamespace(etag=etag))
+
+    def head_blob(self, path):
+        self.calls.append(("head", path))
+        if path not in self.objects:
+            raise cloud.BlobNotFoundError()
+        return SimpleNamespace(etag=self.objects[path][1],
+            url="https://teststore.private.blob.vercel-storage.com/" + path)
 
     def put_blob(self, path, body, **options):
         self.calls.append(("put", path))
@@ -343,6 +361,33 @@ class LocalAPITests(APIContract, unittest.TestCase):
 
 class BlobAPITests(APIContract, unittest.TestCase):
     backend = "blob"
+
+    def test_deleted_cached_photo_cannot_restore_visibility_or_repeat_delete_success(self):
+        self.fake.stale_cdn = True
+        key = self.register(self.a)
+        path = self.store(self.a).prefix + "users/" + key + ".json"
+        self.assertIn(path, self.fake.delivery_cache)
+        self.assertEqual(self.call(self.a, "POST", "/process_frame", {"frame": FRAME_A}).status_code, 200)
+        self.assertEqual(self.call(self.a, "DELETE", "/api/users/" + key).status_code, 200)
+        self.assertIn(b"TEST Alice", self.fake.get_blob(path, access="private").body,
+                      "fixture deliberately keeps the deleted CDN body available")
+        self.assertEqual(self.call(self.a, "DELETE", "/api/users/" + key).status_code, 404)
+        self.assertFalse(self.store(self.a).has_user(key))
+        self.assertEqual(self.a.get("/api/users").get_json()["users"], [])
+        self.assertEqual(self.a.get("/api/attendance/recent").get_json()["rows"], [])
+        self.assertEqual(self.call(self.a, "POST", "/process_frame", {"frame": FRAME_A}).get_json()["prediction"], "UNKNOWN")
+
+    def test_replaced_cooldown_uses_catalog_version_when_old_delivery_bodies_remain_cached(self):
+        self.fake.stale_cdn = True
+        key = self.register(self.a)
+        store = self.store(self.a)
+        row = {"UserKey": key, "Name": "TEST", "RecordedAt": "2026-10-29T12:00:00Z"}
+        for now, expected in [(100, True), (101, False), (121, True), (122, False), (142, True)]:
+            with patch.object(cloud.time, "time", return_value=now):
+                self.assertEqual(store.mark(row, 20), expected)
+        self.assertEqual(len(store.recent()), 3)
+        downloads = [path for operation, path in self.fake.calls if operation == "get" and "/cooldowns/" in path]
+        self.assertTrue(downloads and all("?version=" in path for path in downloads))
 
     def test_blob_storage_never_lists_or_changes_shared_legacy_objects(self):
         legacy = "attendance-app/users/TEST_LEGACY.json"

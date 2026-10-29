@@ -47,6 +47,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("base_url")
     parser.add_argument("--face-image", type=Path)
+    parser.add_argument("--check-cooldown-expiry", action="store_true",
+                        help="Wait for the real 20-second lease and verify a new mark")
     parser.add_argument("--expect-storage", choices=["private-vercel-blob", "local-workspace-sqlite"])
     args = parser.parse_args()
     first, other = Visitor(args.base_url), Visitor(args.base_url)
@@ -86,11 +88,21 @@ def main():
         assert status == 200 and repeated["success"] and not repeated["marked"]
         assert any(row["UserKey"] == key for row in first.call("/api/attendance/recent")[1]["rows"])
         checks.append({"check": "actual_match_scoped_history_and_duplicate_cooldown", "seconds": seconds})
+        if args.check_cooldown_expiry:
+            time.sleep(21)
+            status, renewed, seconds = first.call("/process_frame", {"frame": frame})
+            assert status == 200 and renewed["success"] and renewed["marked"], (status, renewed)
+            status, repeated, _ = first.call("/process_frame", {"frame": frame})
+            assert status == 200 and repeated["success"] and not repeated["marked"], (status, repeated)
+            rows = first.call("/api/attendance/recent")[1]["rows"]
+            assert len([row for row in rows if row["UserKey"] == key]) == 2
+            checks.append({"check": "expired_blob_lease_replaced_without_stale_cached_body", "seconds": seconds})
         assert first.call("/api/users/" + key, method="DELETE")[0] == 200
         created.remove(key)
         assert first.call("/api/users")[1]["users"] == []
         assert first.call("/api/attendance/recent")[1]["rows"] == []
-        assert first.call("/api/users/" + key, method="DELETE")[0] == 404
+        status, deleted_again, _ = first.call("/api/users/" + key, method="DELETE")
+        assert status == 404, (status, deleted_again)
         status, deleted, _ = first.call("/process_frame", {"frame": frame})
         assert status == 200 and not deleted["success"] and deleted["prediction"] == "UNKNOWN"
         checks.append({"check": "reference_and_history_deleted_no_further_match", "result": "passed"})
