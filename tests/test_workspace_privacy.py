@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
@@ -47,17 +47,19 @@ class FakeBlob:
     def get_blob(self, path, **options):
         self.calls.append(("get", path))
         assert options.get("access") == "private"
-        delivery_key = path
         parsed = urlsplit(path)
         if parsed.scheme:
             path = unquote(parsed.path).lstrip("/")
-        if self.stale_cdn and delivery_key in self.delivery_cache:
+        delivery_key = path
+        consistent_read = parse_qs(parsed.query).get("cache") == ["0"]
+        if self.stale_cdn and not consistent_read and delivery_key in self.delivery_cache:
             body, etag = self.delivery_cache[delivery_key]
             return SimpleNamespace(body=body, metadata=SimpleNamespace(etag=etag))
         if path not in self.objects:
             raise cloud.BlobNotFoundError()
         body, etag = self.objects[path]
-        self.delivery_cache[delivery_key] = (body, etag)
+        if not consistent_read:
+            self.delivery_cache[delivery_key] = (body, etag)
         return SimpleNamespace(body=body, metadata=SimpleNamespace(etag=etag))
 
     def head_blob(self, path):
@@ -377,7 +379,7 @@ class BlobAPITests(APIContract, unittest.TestCase):
         self.assertEqual(self.a.get("/api/attendance/recent").get_json()["rows"], [])
         self.assertEqual(self.call(self.a, "POST", "/process_frame", {"frame": FRAME_A}).get_json()["prediction"], "UNKNOWN")
 
-    def test_replaced_cooldown_uses_catalog_version_when_old_delivery_bodies_remain_cached(self):
+    def test_replaced_cooldown_uses_consistent_read_when_old_delivery_bodies_remain_cached(self):
         self.fake.stale_cdn = True
         key = self.register(self.a)
         store = self.store(self.a)
@@ -387,7 +389,7 @@ class BlobAPITests(APIContract, unittest.TestCase):
                 self.assertEqual(store.mark(row, 20), expected)
         self.assertEqual(len(store.recent()), 3)
         downloads = [path for operation, path in self.fake.calls if operation == "get" and "/cooldowns/" in path]
-        self.assertTrue(downloads and all("?version=" in path for path in downloads))
+        self.assertTrue(downloads and all(parse_qs(urlsplit(path).query).get("cache") == ["0"] for path in downloads))
 
     def test_mismatched_delivery_version_cannot_remove_newer_cooldown(self):
         key = self.register(self.a)

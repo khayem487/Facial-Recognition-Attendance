@@ -4,7 +4,6 @@ import base64
 from datetime import datetime, timezone
 import json
 import time
-from urllib.parse import quote
 from uuid import uuid4
 
 from vercel.blob import sync as blob
@@ -19,11 +18,11 @@ class BlobStorage:
 
     def _get(self, path):
         if path.startswith("cooldowns/"):
-            # This pathname is reused. Its catalog ETag selects a new CDN key
-            # after each lease replacement, rather than reading a stale body.
+            # Reused paths require Vercel's documented consistent-read query;
+            # arbitrary version query parameters do not bypass its CDN.
             metadata = blob.head_blob(self.prefix + path)
             separator = "&" if "?" in metadata.url else "?"
-            result = blob.get_blob(metadata.url + separator + "version=" + quote(metadata.etag, safe=""), access="private")
+            result = blob.get_blob(metadata.url + separator + "cache=0", access="private")
             if not result.metadata.etag or result.metadata.etag.strip('"') != metadata.etag.strip('"'):
                 raise StorageError("Workspace storage is temporarily unavailable")
             return json.loads(result.body), metadata.etag

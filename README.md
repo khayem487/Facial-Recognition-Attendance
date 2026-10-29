@@ -53,6 +53,8 @@ The private Blob integration supplies `BLOB_READ_WRITE_TOKEN` or platform store 
 
 The live demo persists new workspace data in private Vercel Blob. Local mode persists in SQLite. This does not promise fixed response times or uninterrupted free hosting.
 
+For reused cooldown paths, Python SDK 0.5 uses Vercel's documented private `cache=0` query to read from origin, with a catalog/delivery ETag check. Deletion checks use the catalog API. This prevents a stale CDN body from reviving a deleted profile or incorrectly reusing a prior cooldown. See [Vercel consistent reads](https://vercel.com/changelog/vercel-blob-now-supports-consistent-reads-on-private-storage).
+
 ## Validation
 
 ```powershell
@@ -64,6 +66,8 @@ node --test tests/test_workspace_client.mjs
 The offline suite covers two-visitor isolation, CSRF/origin checks, bounded image decoding, local SQLite/private Blob parity, persistence, deletion retry, stale-reference removal and untouched legacy data. Frontend checks cover session bootstrap, CSRF headers, errors, bounded capture and honest similarity display.
 
 The deployment smoke test uses two separate cookie jars. With an explicitly supplied public test fixture it registers one deliberately disposable profile, checks actual face matching, history and cooldown, verifies that another visitor cannot read/match/delete it, then deletes the fixture and verifies it no longer matches. It never opens a webcam or uses a personal image, and cleans up only its own test registration.
+
+Add `--check-cooldown-expiry` to wait 21 seconds and verify an expired cloud cooldown is replaced and immediately deduplicated again.
 
 ## Data and source
 
